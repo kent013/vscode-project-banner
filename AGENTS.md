@@ -1,83 +1,98 @@
 # vscode-project-banner
 
-## 使命（North Star）
+## North Star
 
-> **VSCode のウィンドウを並行で複数開いていても、今フォーカスしているのが「どのプロジェクトか」を一瞬で識別できるようにする拡張機能。**
+> **A VSCode extension that lets you instantly recognize which project the currently-focused window belongs to, even when several windows are open in parallel.**
 >
-> - 利用者は同時に 5 本前後のプロジェクトを行き来している
-> - 既存のタイトルバー・ステータスバーは小さく、見間違いを起こす（特にウィンドウ切替直後）
-> - 「画面にバーンと出る」レベルの視覚的アンカーを VSCode 公式 API の範囲で実現する
+> - The user juggles ~5 projects at the same time.
+> - The existing title bar and status bar are too small to reliably distinguish, especially right after switching windows.
+> - The goal is a "this is the one" visual anchor — strictly within the official VSCode extension API.
 
-## スコープ
+## Scope
 
-### やること
-- ウィンドウフォーカス取得時に、エディタを覆うスプラッシュ Webview を短時間（1〜1.5秒）表示してプロジェクト名を巨大に出す
-- 常時表示の極太ステータスバー項目（プロジェクト名のハッシュから自動色付け）
-- ワークスペース起動時の全画面ウェルカムタブ（任意）
+### In scope
 
-### やらないこと
-- **CSS 注入系のハック**（Custom CSS and JS Loader 等）は禁止。VSCode 更新で壊れる + 起動時警告が出てメンテ不能になるため
-- タイトルバーやアクティビティバーへの直接介入（公式 API で許可されない）
-- 色だけでの区別（それは Peacock の領分。本拡張は「プロジェクト名のテキスト」を視認させるのが価値）
+- A short-lived splash Webview that covers the editor area for ~1–3 seconds when the window gains focus, displaying the project name at very large size.
+- A permanent status bar item showing the project name, tinted with a deterministic per-project color.
+- (Optional, low priority) A welcome tab that opens on workspace startup with a similarly large project name.
 
-## 技術方針
+### Out of scope
 
-- **言語: TypeScript 必須**。`.js` の新規作成禁止
-- **VSCode 拡張 API のみ**を使う。Electron の内部 API には触らない
-- 主要 API:
-  - `vscode.window.onDidChangeWindowState` — フォーカス検知
-  - `vscode.window.createWebviewPanel` — スプラッシュ表示
-  - `vscode.window.createStatusBarItem` — 常時表示
-  - `vscode.workspace.workspaceFolders` / `vscode.workspace.name` — プロジェクト名取得
-- 設定で挙動を切替可能に:
-  - スプラッシュ表示時間（ms）
-  - 自動色付けのオン/オフ
-  - 表示位置・フォントサイズ
-  - 表示するテキスト（プロジェクト名・カスタム文字列）
+- **CSS-injection style hacks** (Custom CSS and JS Loader and similar). They break on every VSCode update and trigger startup warnings — not maintainable.
+- Modifying the title bar or activity bar directly (the official API does not allow it).
+- Color-only differentiation. That is Peacock's territory; the value of this extension is letting you actually read the project's **name**.
 
-## 禁止事項
+## Technical principles
 
-| #   | 禁止事項                                                                 |
-| --- | ------------------------------------------------------------------------ |
-| 1   | JavaScript の使用（TypeScript 必須）                                     |
-| 2   | CSS 注入系のハック手法（Custom CSS and JS Loader 等の前提依存）          |
-| 3   | テストなしの実装完了                                                     |
-| 4   | 不必要な複雑化（5本のプロジェクト識別というシンプルな価値からブレない） |
-| 5   | VSCode の非公式 / 内部 API への依存                                      |
+- **TypeScript only.** No new `.js` files.
+- **Official VSCode extension API only.** No Electron internals.
+- Key APIs:
+  - `vscode.window.onDidChangeWindowState` — focus detection.
+  - `vscode.window.createWebviewPanel` — splash rendering.
+  - `vscode.window.createStatusBarItem` — permanent status bar item.
+  - `vscode.workspace.workspaceFolders` / `vscode.workspace.name` — project name source.
+- Behavior is configurable:
+  - Splash duration (ms).
+  - Auto-coloring on/off.
+  - Display position and font size.
+  - Displayed text (project name or custom string).
 
-## ディレクトリ構造（現状）
+## Hard rules
+
+| #   | Rule                                                                      |
+| --- | ------------------------------------------------------------------------- |
+| 1   | No JavaScript source files. TypeScript only.                              |
+| 2   | No CSS-injection-based hacks (Custom CSS and JS Loader and similar).      |
+| 3   | No "done" without tests for what is testable.                             |
+| 4   | No unnecessary complexity. Stay anchored to the "5 windows" simple value. |
+| 5   | No reliance on unofficial / internal VSCode APIs.                         |
+
+## Directory layout (current)
 
 ```
 vscode-project-banner/
+├── .github/
+│   └── workflows/
+│       └── release.yml      # tag push (v*) → build VSIX → attach to GitHub Release
 ├── .vscode/
-│   ├── launch.json         # F5 で Run Extension（preLaunchTask: npm: build）
-│   └── tasks.json          # npm: build / npm: watch
+│   ├── launch.json          # F5: Run Extension (preLaunchTask: npm: build)
+│   └── tasks.json           # npm: build / npm: watch
+├── docs/
+│   └── splash.png           # README screenshot
 ├── src/
-│   ├── extension.ts        # エントリポイント（activate/deactivate, focus/設定変更購読）
-│   ├── splash.ts           # フォーカス時スプラッシュ Webview コントローラ（vscode 依存）
-│   ├── splashHtml.ts       # HTML/CSP/エスケープ/nonce の純粋関数（テスト容易性のため分離）
-│   ├── statusBar.ts        # ステータスバー項目
-│   └── colorHash.ts        # プロジェクト名→色（FNV-1a → HSL）と色絵文字の決定論的マッピング
+│   ├── extension.ts         # entry point: activate/deactivate, focus & config subscriptions
+│   ├── splash.ts            # splash Webview controller (depends on vscode)
+│   ├── splashHtml.ts        # pure HTML/CSP/escape/nonce helpers (split out for testability)
+│   ├── statusBar.ts         # status bar item
+│   └── colorHash.ts         # project name → color (FNV-1a → HSL → hex)
 ├── test/
 │   ├── colorHash.test.ts
-│   └── splash.test.ts      # buildSplashHtml / escapeHtml / makeNonce の単体テスト
-├── dist/                   # esbuild バンドル出力（gitignore）
-├── out/                    # tsc 出力（テスト用、gitignore）
-├── package.json            # contributes / activationEvents / engines.vscode
+│   └── splash.test.ts       # buildSplashHtml / escapeHtml / makeNonce unit tests
+├── dist/                    # esbuild bundle output (gitignored)
+├── out/                     # tsc output for tests (gitignored)
+├── package.json             # contributes / activationEvents / engines.vscode / extensionKind
 ├── tsconfig.json
+├── README.md                # public-facing docs
+├── HANDOFF.md               # session-to-session handoff notes
 └── .vscodeignore
 ```
 
-## API 制約に関するメモ
+## API constraints worth remembering
 
-- **StatusBarItem の `backgroundColor` は ThemeColor 限定**（`statusBarItem.errorBackground` / `warningBackground` のみ）。任意の HSL は設定不可。
-  - 解決策: 色絵文字（🟥🟧🟨🟩🟦🟪🟫⬛⬜）を `text` の頭に付けて視認性を出し、必要なら `useWarningBackground` で warning 背景に切替。
-- **Webview はエディタ領域内にしか描けない**（公式 API の壁）。ウィンドウ全体を覆う「真のオーバーレイ」は不可能。
-  - スプラッシュ Webview は `ViewColumn.Active` に短時間だけ開いて自動 dispose する方式で「バーン感」を出す。
+- **`StatusBarItem.backgroundColor` only accepts a `ThemeColor`** (`statusBarItem.errorBackground` / `warningBackground`). Arbitrary HSL is not allowed.
+  - Solution: use `StatusBarItem.color` (which **does** accept arbitrary CSS color strings) to tint a `$(circle-filled) <name>` text. The hue derived from the project name is the same one the splash uses for its background, so both surfaces match exactly.
+- **A Webview only paints inside the editor area.** A "true" full-window overlay is impossible from extensions.
+  - Solution: open a Webview panel in `ViewColumn.Active` for a few seconds and dispose it. That is enough to produce the "this one" effect when switching windows.
+- **`onDidChangeWindowState` only fires on changes**, not on activation. So the splash never appears when the window is first opened — only when focus comes back from elsewhere. The `Project Banner: Show splash now` command is the on-demand escape hatch.
 
-## 設計原則
+## Distribution
 
-- **シンプルさ優先** — 「どのプロジェクトか分かる」以上の機能を盛らない
-- **設定の既定値で完結する** — 初回インストール後、設定を一切いじらなくても価値が出る状態を作る
-- **テストファースト** — Webview の DOM や色付け関数は単体テスト可能な形で切り出す
-- **devサーバ等は立ち上げない** — F5 デバッグ起動はユーザーが行う
+- The extension is declared `extensionKind: ["ui"]`. A single local install is enough; Remote-SSH windows reuse the local install instead of requiring a per-host install.
+- Releases are published via GitHub Actions: `npm version patch` → `git push --follow-tags` builds a `.vsix` and attaches it to a `v*` GitHub Release.
+
+## Design heuristics
+
+- **Simplicity first.** Do not add features beyond "tell me which project this is."
+- **Defaults must work.** A fresh install should be useful with zero configuration.
+- **Test-first.** Webview HTML, escaping, and color hashing are split into pure functions and covered by unit tests.
+- **No dev server, no scripted F5.** The user runs F5 themselves; the extension is allowed to assume an interactive developer.

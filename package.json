@@ -7,7 +7,7 @@
   "private": true,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kent013/vscode-project-banner.git"
+    "url": "https://github.com/kent013/vscode-project-banner.git"
   },
   "bugs": {
     "url": "https://github.com/kent013/vscode-project-banner/issues"

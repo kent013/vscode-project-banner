@@ -1,74 +1,82 @@
-# 引き継ぎノート（前セッション → 次セッション）
+# Handoff Notes (previous session → next session)
 
-最終更新: 2026-04-27 / 作成者: 前セッションの Claude Code（ユーザー: ishitoya@rio.ne.jp）
+Last updated: 2026-04-27 / Author: previous session of Claude Code (user: ishitoya@rio.ne.jp)
 
-## ひとことで
+## TL;DR
 
-**VSCode で並行 5 本のプロジェクトを行き来していて、ウィンドウのヘッダだけだとどれが今のプロジェクトか分からなくて間違えるので、画面に「バーンと」プロジェクト名を出してくれる拡張機能。**
+**The user keeps about five VSCode windows open in parallel and keeps mistaking one for another because the title bar alone is too small. This extension flashes the project name large on the screen so you instantly know which window is which.**
 
-既存拡張で完全には満たせなかった（後述）ので自作。**現セッションで MVP 実装まで完了**。
+Existing extensions did not fully solve it (see comparison below), so this is a custom build. **The MVP and the GitHub release pipeline are complete.**
 
-## 現在のステータス（2026-04-27 時点）
+## Current state (as of 2026-04-27)
 
-実装済み:
-- ✅ scaffolding（手動: `package.json` / `tsconfig.json` / `.vscodeignore` / `.vscode/launch.json` / `tasks.json`）
-- ✅ `src/colorHash.ts` — FNV-1a ハッシュ → HSL の決定論的マッピング + 色絵文字
-- ✅ `src/splashHtml.ts` — HTML/CSP/escape/nonce（純粋関数、単体テスト対象）
-- ✅ `src/splash.ts` — フォーカス時スプラッシュ Webview コントローラ（min interval で連打防止）
-- ✅ `src/statusBar.ts` — 色絵文字付きステータスバー項目
-- ✅ `src/extension.ts` — `onDidChangeWindowState` 購読、設定変更追従、`projectBanner.show` コマンド
-- ✅ 単体テスト 19 本（mocha + tsc コンパイル方式、`npm test` で全パス）
-- ✅ `npm run build`（esbuild バンドル）成功
+Done:
 
-未実施:
-- ⏳ **F5 デバッグ起動の実機確認**（ユーザーが手動で行う）
-- ⏳ ワークスペース起動時の全画面ウェルカムタブ（HANDOFF 当初の優先度低タスク）
-- ⏳ `vsce package` で `.vsix` 化して他ウィンドウで実用試験
+- ✅ Scaffolding (manual: `package.json` / `tsconfig.json` / `.vscodeignore` / `.vscode/launch.json` / `tasks.json`).
+- ✅ `src/colorHash.ts` — FNV-1a hash → HSL color, plus `hslToHex` for status-bar tinting.
+- ✅ `src/splashHtml.ts` — pure HTML / CSP / escape / nonce helpers, fully unit-tested.
+- ✅ `src/splash.ts` — splash Webview controller with min-interval throttle and click/key dismiss.
+- ✅ `src/statusBar.ts` — status bar item tinted with the same hue the splash uses.
+- ✅ `src/extension.ts` — `onDidChangeWindowState` subscription, config change handling, `projectBanner.show` command.
+- ✅ 21 unit tests (mocha + tsc; `npm test` is green).
+- ✅ `npm run build` (esbuild bundle) green.
+- ✅ Git repository initialized and pushed to `git@github.com:kent013/vscode-project-banner.git`.
+- ✅ GitHub Actions release workflow (`v*` tag → build VSIX → attach to release).
+- ✅ `extensionKind: ["ui"]` so a single local install covers Remote-SSH windows.
+- ✅ Public docs translated to English (README, AGENTS, HANDOFF). README references `docs/splash.png`.
 
-## 次にやること（次セッション着手順）
+Not yet done:
 
-1. [ ] **F5 でローカル動作確認**（ユーザー手動）
-   - VSCode で本リポジトリを開く → F5 → Extension Development Host 起動
-   - 任意のフォルダを開いて、ウィンドウフォーカスでスプラッシュが出るか確認
-   - ステータスバー左端に `🟦 フォルダ名` が常駐するか確認
-   - コマンドパレット → `Project Banner: Show splash now` で手動表示できるか
-2. [ ] **`projectBanner.splash.minIntervalMs`（デフォルト 30s）の体感調整**
-   - 連打防止と「ウィンドウ切替で出てほしい」のバランスを実機で確認
-3. [ ] 5 本の実プロジェクトで使ってみて、`vsce package` → 他ウィンドウへ install して同時運用テスト
-4. [ ] 課題が出たら HANDOFF/AGENTS にフィードバック
+- ⏳ **F5 / live verification on the user's actual five-project rotation.**
+- ⏳ Optional welcome tab on workspace startup (originally low priority).
+- ⏳ MIT license file (README mentions "planned").
 
-## 設計上の判断メモ（次セッション読み返し用）
+## Next steps for the next session
 
-### StatusBar の背景色を任意 HSL にできない問題
+1. [ ] **Real-world soak test** across the user's five parallel windows. Watch for:
+   - Whether `splash.minIntervalMs = 3000` is too aggressive (gets in the way) or too lenient (still flickers on Cmd+Tab).
+   - Whether two real projects accidentally hash to similar hues, in which case the user can override via `projectBanner.text`.
+2. [ ] Verify the Remote-SSH path works without per-host install (the `extensionKind: ["ui"]` claim).
+3. [ ] If the user wants a permanent welcome tab on startup, implement it as a separate concern from the splash.
+4. [ ] Add a LICENSE file once the user picks a license.
 
-VSCode 公式 API では `StatusBarItem.backgroundColor` は `ThemeColor` 限定（`errorBackground` / `warningBackground` のみ）。任意 HSL は不可。
+## Design decisions worth remembering
 
-→ 色絵文字（🟥🟧🟨🟩🟦🟪🟫⬛⬜）の中からハッシュで 1 つ選び `text` の先頭に付ける方式で「色での識別」を実現。`useWarningBackground` 設定で警告背景に切替も可能。
+### Status bar background color cannot be arbitrary HSL
 
-### スプラッシュは min interval で抑制
+VSCode's API only allows a `ThemeColor` for `StatusBarItem.backgroundColor` (`errorBackground` / `warningBackground` only). Arbitrary HSL is not supported.
 
-`onDidChangeWindowState` は Cmd+Tab で頻発するため、最小発火間隔（既定 30s）を入れて連打防止。実機で煩わしければ縮める。
+→ We use `StatusBarItem.color` instead, which **does** accept arbitrary CSS color strings, and render `$(circle-filled) <project name>` so the dot and the name share the project's hue. The splash's background uses the same HSL, so the two surfaces match exactly.
 
-### CSP / セキュリティ
+### Splash is throttled to avoid flicker
 
-`buildSplashHtml` は `default-src 'none'` + nonce 付き `style-src` のみ。`enableScripts: false` でスクリプト実行も無効化。プロジェクト名は `escapeHtml` で安全化済み。
+`onDidChangeWindowState` fires on every Cmd+Tab. Without a throttle the splash would constantly re-trigger. We default `splash.minIntervalMs` to 3000 ms — enough to suppress the flicker, short enough that round-trips between windows still feel responsive.
 
-## なぜ作るのか（既存拡張との比較）
+### CSP / Webview security
 
-| 案 | 評価 | 採用しない理由 |
+`buildSplashHtml` emits `default-src 'none'` plus a per-instance nonce on both `<style>` and `<script>`. The script is just a click/key listener that posts a `dismiss` message; the panel disposes itself on receipt. Project names are run through `escapeHtml` first.
+
+### `extensionKind: ["ui"]` for Remote-SSH
+
+Project Banner only uses UI-side APIs (status bar, webview panel, window state, the workspace name proxied from remote). Declaring it as a UI extension means installing the `.vsix` on the local machine is enough — the extension runs locally even when the user is connected to an SSH host.
+
+## Why this exists (existing extensions comparison)
+
+| Option | Verdict | Reason rejected |
 | --- | --- | --- |
-| Peacock | ◎（実在・有名） | 色は変わるがプロジェクト名のテキストは出ない。5本もあると色だけだと取り違える |
-| `window.title` 設定変更 | △ | macOS のタイトルバーが小さく、視認性が結局足りない |
-| Background / Custom CSS and JS Loader 系 | ✗ | CSS 注入は VSCode アップデートで壊れる + 起動時警告が出る。メンテ不能 |
+| Peacock | ◎ (well-known) | Changes color but does not show the project name as text. With five projects, color alone is easy to misread. |
+| `window.title` setting | △ | The macOS title bar is small; visibility is still insufficient. |
+| Background / Custom CSS and JS Loader | ✗ | CSS injection breaks on every VSCode update and triggers startup warnings. Not maintainable. |
 
-## 制約・前提（不変）
+## Constraints (unchanged)
 
-- TypeScript 必須（`.js` 新規作成禁止）
-- CSS 注入系のハック禁止
-- VSCode 公式 API のみ
-- テストファースト
+- TypeScript only. No new `.js` files.
+- No CSS-injection hacks.
+- Official VSCode API only.
+- Tests are required for every testable unit.
 
-## 関連リンク・出自
+## References
 
-- 元プロジェクト: [`~/repository/local-test-environments`](../local-test-environments)（LTE 基盤の toolbox。本拡張はそこのスコープに合わなかったので分離）
-- 設計の詳細は [AGENTS.md](AGENTS.md) を参照
+- Origin project: [`~/repository/local-test-environments`](../local-test-environments) (LTE toolbox; this extension was carved out because it did not fit there).
+- Detailed design: [AGENTS.md](AGENTS.md).
+- Public docs / install instructions: [README.md](README.md).
