@@ -43,17 +43,47 @@ function stripGenericPrefix(name: string): string {
   return name;
 }
 
-// Single-character / emoji badge that signals at a glance which remote
-// environment this window is attached to. Returns "" for the local case.
-export function getEnvironmentBadge(remoteName: string | undefined): string {
+// Emoji badge(s) that signal at a glance which remote environment this window
+// is attached to. Returns "" for the local case. For chained setups (e.g. a
+// dev container running on an SSH host) it returns multiple badges so both
+// layers are visible.
+//
+// rawWorkspaceName is the un-cleaned workspace.name; the dev-container suffix
+// "Dev Container: <name> @ <host>" is the only signal we have for the
+// SSH-then-container chain, since vscode.env.remoteName only reports the
+// innermost remote.
+export function getEnvironmentBadge(
+  remoteName: string | undefined,
+  rawWorkspaceName?: string,
+): string {
   if (!remoteName) {
     return "";
   }
   if (remoteName.startsWith("ssh-remote")) return "🔗";
   if (remoteName === "wsl") return "🐧";
-  if (remoteName.startsWith("dev-container") || remoteName.startsWith("attached-container")) {
+  if (
+    remoteName.startsWith("dev-container") ||
+    remoteName.startsWith("attached-container")
+  ) {
+    if (rawWorkspaceName && isContainerOnRemoteHost(rawWorkspaceName)) {
+      return "🔗📦";
+    }
     return "📦";
   }
   if (remoteName === "codespaces") return "☁";
   return "🌐";
+}
+
+function isContainerOnRemoteHost(rawWorkspaceName: string): boolean {
+  const m = rawWorkspaceName.match(
+    /\[Dev Container:[^@\]]*@\s*([^\]]+?)\s*\]/,
+  );
+  if (!m) {
+    return false;
+  }
+  const host = (m[1] ?? "").trim().toLowerCase();
+  if (!host || host === "localhost" || host === "127.0.0.1" || host === "::1") {
+    return false;
+  }
+  return true;
 }

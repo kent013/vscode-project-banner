@@ -85,4 +85,31 @@ describe("getEnvironmentBadge", () => {
   it("returns a fallback globe for unknown remotes", () => {
     assert.equal(getEnvironmentBadge("brand-new-remote-2030"), "🌐");
   });
+
+  it("returns chain+box for a dev container on an SSH host", () => {
+    assert.equal(
+      getEnvironmentBadge(
+        "dev-container",
+        "workspace [Dev Container: aigenba @ desktop-linux]",
+      ),
+      "🔗📦",
+    );
+  });
+
+  it("returns just box for a dev container on localhost", () => {
+    assert.equal(
+      getEnvironmentBadge(
+        "dev-container",
+        "workspace [Dev Container: foo @ localhost]",
+      ),
+      "📦",
+    );
+  });
+
+  it("returns just box when the dev container suffix has no @ host", () => {
+    assert.equal(
+      getEnvironmentBadge("dev-container", "workspace [Dev Container: foo]"),
+      "📦",
+    );
+  });
 });

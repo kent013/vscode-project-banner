@@ -23,7 +23,10 @@ function resolveProjectName(): string {
 }
 
 function buildStatusBarLabel(name: string): string {
-  const badge = getEnvironmentBadge(vscode.env.remoteName);
+  const badge = getEnvironmentBadge(
+    vscode.env.remoteName,
+    vscode.workspace.name,
+  );
   return badge ? `${badge} ${name}` : name;
 }
 
