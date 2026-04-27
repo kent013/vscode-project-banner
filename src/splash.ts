@@ -20,6 +20,13 @@ export function createSplashController(
   let closeTimer: NodeJS.Timeout | undefined;
   let lastShownAt = 0;
 
+  const hide = (): void => {
+    // Don't dispose — switching tabs leaves the webview's renderer warm so the
+    // next show is near-instant. The Project Banner tab stays as an inactive
+    // tab in the editor area.
+    void vscode.commands.executeCommand("workbench.action.previousEditor");
+  };
+
   const dispose = (): void => {
     if (closeTimer) {
       clearTimeout(closeTimer);
@@ -39,36 +46,47 @@ export function createSplashController(
         return;
       }
       lastShownAt = now;
-      dispose();
-      panel = vscode.window.createWebviewPanel(
-        "projectBanner.splash",
-        text,
-        { viewColumn: vscode.ViewColumn.Active, preserveFocus: true },
-        { enableScripts: true, retainContextWhenHidden: false },
-      );
-      panel.webview.html = buildSplashHtml({
+
+      const html = buildSplashHtml({
         text,
         fontSizePx: opts.fontSizePx,
         durationMs: opts.durationMs,
         color,
         nonce: makeNonce(),
       });
-      panel.webview.onDidReceiveMessage((msg: { type?: string }) => {
-        if (msg?.type === "dismiss") {
-          panel?.dispose();
-        }
-      });
-      panel.onDidDispose(() => {
-        if (closeTimer) {
-          clearTimeout(closeTimer);
-          closeTimer = undefined;
-        }
-        panel = undefined;
-      });
+
+      if (closeTimer) {
+        clearTimeout(closeTimer);
+        closeTimer = undefined;
+      }
+
+      if (!panel) {
+        panel = vscode.window.createWebviewPanel(
+          "projectBanner.splash",
+          text,
+          { viewColumn: vscode.ViewColumn.Active, preserveFocus: true },
+          { enableScripts: true, retainContextWhenHidden: true },
+        );
+        panel.webview.onDidReceiveMessage((msg: { type?: string }) => {
+          if (msg?.type === "dismiss") {
+            hide();
+          }
+        });
+        panel.onDidDispose(() => {
+          if (closeTimer) {
+            clearTimeout(closeTimer);
+            closeTimer = undefined;
+          }
+          panel = undefined;
+        });
+      } else {
+        panel.title = text;
+        panel.reveal(vscode.ViewColumn.Active, true);
+      }
+      panel.webview.html = html;
+
       closeTimer = setTimeout(() => {
-        if (panel) {
-          panel.dispose();
-        }
+        hide();
       }, opts.durationMs);
     },
     dispose,
