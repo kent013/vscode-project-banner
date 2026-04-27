@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { projectNameToColor } from "./colorHash";
 import { createSplashController } from "./splash";
 import { createBannerStatusBar } from "./statusBar";
+import { cleanWorkspaceName, getEnvironmentBadge } from "./workspaceName";
 
 const CONFIG_SECTION = "projectBanner";
 
@@ -13,14 +14,17 @@ function resolveProjectName(): string {
   if (override) {
     return override;
   }
-  if (vscode.workspace.name) {
-    return vscode.workspace.name;
-  }
-  const folders = vscode.workspace.workspaceFolders;
-  if (folders && folders.length > 0) {
-    return folders[0]!.name;
-  }
-  return "(no project)";
+  const candidate =
+    vscode.workspace.name ??
+    vscode.workspace.workspaceFolders?.[0]?.name ??
+    "";
+  const cleaned = cleanWorkspaceName(candidate);
+  return cleaned || "(no project)";
+}
+
+function buildStatusBarLabel(name: string): string {
+  const badge = getEnvironmentBadge(vscode.env.remoteName);
+  return badge ? `${badge} ${name}` : name;
 }
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -48,7 +52,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const refreshStatusBar = (): void => {
     const cfg = vscode.workspace.getConfiguration(CONFIG_SECTION);
     const name = resolveProjectName();
-    statusBar.update(name, projectNameToColor(name), {
+    statusBar.update(buildStatusBarLabel(name), projectNameToColor(name), {
       enabled: cfg.get<boolean>("statusBar.enabled", true),
       useWarningBackground: cfg.get<boolean>(
         "statusBar.useWarningBackground",
