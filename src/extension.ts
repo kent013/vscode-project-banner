@@ -24,6 +24,14 @@ function resolveProjectName(): string {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  // Project Banner is a UI-only extension. If it ends up activated on the
+  // Workspace side (e.g. the user installed it on a Remote-SSH host or in a
+  // devcontainer image before extensionKind: ["ui"] was effective), bail out
+  // so the status bar item and splash are not duplicated across hosts.
+  if (context.extension.extensionKind === vscode.ExtensionKind.Workspace) {
+    return;
+  }
+
   const statusBar = createBannerStatusBar();
   context.subscriptions.push({ dispose: () => statusBar.dispose() });
 
