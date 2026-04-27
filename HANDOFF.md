@@ -1,6 +1,6 @@
 # Handoff Notes (previous session → next session)
 
-Last updated: 2026-04-27 / Author: previous session of Claude Code (user: ishitoya@rio.ne.jp)
+Last updated: 2026-04-27 (soak-test pass 1) / Author: previous session of Claude Code (user: ishitoya@rio.ne.jp)
 
 ## TL;DR
 
@@ -24,18 +24,22 @@ Done:
 - ✅ GitHub Actions release workflow (`v*` tag → build VSIX → attach to release).
 - ✅ `extensionKind: ["ui"]` so a single local install covers Remote-SSH windows.
 - ✅ Public docs translated to English (README, AGENTS, HANDOFF). README references `docs/splash.png`.
+- ✅ Soak-test pass 1 (2026-04-27): user is running the extension in their real five-window rotation.
+- ✅ Fix: splash tab no longer keeps focus after fadeout. Old design tried to reuse a hidden panel and switch tabs via `workbench.action.previousEditor`; that command was unreliable and sometimes left the Project Banner tab as the active tab. Now `hide()` calls `panel.dispose()` and lets VSCode restore the previous tab automatically. See `src/splash.ts`.
 
 Not yet done:
 
-- ⏳ **F5 / live verification on the user's actual five-project rotation.**
+- ⏳ Soak-test pass 2: continue using the extension and watch for splash flicker, color collisions between projects, and any remaining edge cases.
+- ⏳ Verify the Remote-SSH path works without per-host install (the `extensionKind: ["ui"]` claim).
 - ⏳ Optional welcome tab on workspace startup (originally low priority).
 - ⏳ MIT license file (README mentions "planned").
 
 ## Next steps for the next session
 
-1. [ ] **Real-world soak test** across the user's five parallel windows. Watch for:
+1. [ ] **Continue the soak test.** Watch specifically for:
    - Whether `splash.minIntervalMs = 3000` is too aggressive (gets in the way) or too lenient (still flickers on Cmd+Tab).
    - Whether two real projects accidentally hash to similar hues, in which case the user can override via `projectBanner.text`.
+   - **Known and accepted:** the splash also fires when returning from a non-VSCode app (browser, terminal). The official API gives no way to distinguish "came from another VSCode window" from "came from another app" — `WindowState` only exposes `focused: boolean` and `active: boolean`, no window handle. The user has decided to live with it for now. If it becomes annoying, the lever to pull is `splash.minIntervalMs` (or a future "only show after N minutes of inactivity" mode).
 2. [ ] Verify the Remote-SSH path works without per-host install (the `extensionKind: ["ui"]` claim).
 3. [ ] If the user wants a permanent welcome tab on startup, implement it as a separate concern from the splash.
 4. [ ] Add a LICENSE file once the user picks a license.
@@ -51,6 +55,12 @@ VSCode's API only allows a `ThemeColor` for `StatusBarItem.backgroundColor` (`er
 ### Splash is throttled to avoid flicker
 
 `onDidChangeWindowState` fires on every Cmd+Tab. Without a throttle the splash would constantly re-trigger. We default `splash.minIntervalMs` to 3000 ms — enough to suppress the flicker, short enough that round-trips between windows still feel responsive.
+
+### Hide the splash by disposing the panel, not by switching tabs
+
+We tried keeping a single splash panel alive across shows — `hide()` would just call `workbench.action.previousEditor` to switch tabs, leaving the Project Banner panel hidden but warm so the next show was instant. In practice that command was unreliable and sometimes left the Project Banner tab as the active tab in the column, so focus did not return to the user's editor.
+
+Now `hide()` calls `panel.dispose()` and `show()` always creates a fresh panel. Disposing makes VSCode automatically reactivate the previous tab in the same column, which is exactly the focus restore we want. Recreating the webview costs tens of milliseconds — invisible against a 3-second splash.
 
 ### CSP / Webview security
 
