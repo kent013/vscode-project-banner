@@ -2,7 +2,7 @@
   "name": "vscode-project-banner",
   "displayName": "Project Banner",
   "description": "Display the current project name as a large splash on window focus, plus a colored status bar item, to disambiguate parallel VSCode windows.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "ishitoya",
   "private": true,
   "repository": {
