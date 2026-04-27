@@ -1,0 +1,17 @@
+.github/**
+.vscode/**
+.vscode-test/**
+out/**
+src/**
+test/**
+**/*.map
+**/*.ts
+.gitignore
+.eslintrc*
+tsconfig.json
+HANDOFF.md
+AGENTS.md
+CLAUDE.md
+.claude/**
+node_modules/**
+!dist/**
